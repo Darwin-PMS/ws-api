@@ -365,6 +365,176 @@ const safetyLawController = {
             });
         }
     },
+
+    // Search laws
+    async searchLaws(req, res) {
+        try {
+            const pool = getPool();
+            const { keyword } = req.query;
+
+            if (!keyword) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Keyword is required',
+                });
+            }
+
+            const [laws] = await pool.query(
+                `SELECT * FROM safety_laws 
+                 WHERE is_active = TRUE 
+                 AND (title LIKE ? OR description LIKE ? OR content LIKE ?)
+                 ORDER BY effective_date DESC
+                 LIMIT 50`,
+                [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`]
+            );
+
+            const formattedLaws = laws.map(law => ({
+                id: law.id,
+                title: law.title,
+                description: law.description,
+                content: law.content,
+                category: law.category,
+                jurisdiction: law.jurisdiction,
+                effectiveDate: law.effective_date,
+                penalty: law.penalty,
+                isActive: law.is_active,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedLaws.length,
+                data: formattedLaws,
+            });
+        } catch (error) {
+            console.error('Search laws error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to search laws',
+            });
+        }
+    },
+
+    // Get recent laws
+    async getRecentLaws(req, res) {
+        try {
+            const pool = getPool();
+            const { limit = 10 } = req.query;
+
+            const [laws] = await pool.query(
+                `SELECT * FROM safety_laws 
+                 WHERE is_active = TRUE 
+                 ORDER BY effective_date DESC 
+                 LIMIT ?`,
+                [parseInt(limit)]
+            );
+
+            const formattedLaws = laws.map(law => ({
+                id: law.id,
+                title: law.title,
+                description: law.description,
+                content: law.content,
+                category: law.category,
+                jurisdiction: law.jurisdiction,
+                effectiveDate: law.effective_date,
+                penalty: law.penalty,
+                isActive: law.is_active,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedLaws.length,
+                data: formattedLaws,
+            });
+        } catch (error) {
+            console.error('Get recent laws error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get recent laws',
+            });
+        }
+    },
+
+    // Get laws by category
+    async getLawsByCategory(req, res) {
+        try {
+            const pool = getPool();
+            const { categoryId } = req.params;
+            const { limit = 20 } = req.query;
+
+            const [laws] = await pool.query(
+                `SELECT * FROM safety_laws 
+                 WHERE category = ? AND is_active = TRUE 
+                 ORDER BY effective_date DESC 
+                 LIMIT ?`,
+                [categoryId, parseInt(limit)]
+            );
+
+            const formattedLaws = laws.map(law => ({
+                id: law.id,
+                title: law.title,
+                description: law.description,
+                content: law.content,
+                category: law.category,
+                jurisdiction: law.jurisdiction,
+                effectiveDate: law.effective_date,
+                penalty: law.penalty,
+                isActive: law.is_active,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedLaws.length,
+                data: formattedLaws,
+            });
+        } catch (error) {
+            console.error('Get laws by category error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get laws by category',
+            });
+        }
+    },
+
+    // Get laws by jurisdiction
+    async getLawsByJurisdiction(req, res) {
+        try {
+            const pool = getPool();
+            const { jurisdictionId } = req.params;
+            const { limit = 20 } = req.query;
+
+            const [laws] = await pool.query(
+                `SELECT * FROM safety_laws 
+                 WHERE jurisdiction = ? AND is_active = TRUE 
+                 ORDER BY effective_date DESC 
+                 LIMIT ?`,
+                [jurisdictionId, parseInt(limit)]
+            );
+
+            const formattedLaws = laws.map(law => ({
+                id: law.id,
+                title: law.title,
+                description: law.description,
+                content: law.content,
+                category: law.category,
+                jurisdiction: law.jurisdiction,
+                effectiveDate: law.effective_date,
+                penalty: law.penalty,
+                isActive: law.is_active,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedLaws.length,
+                data: formattedLaws,
+            });
+        } catch (error) {
+            console.error('Get laws by jurisdiction error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get laws by jurisdiction',
+            });
+        }
+    },
 };
 
 module.exports = safetyLawController;

@@ -337,9 +337,35 @@ const familyModel = {
              JOIN users u1 ON fr.from_user_id = u1.id
              JOIN users u2 ON fr.to_user_id = u2.id
              WHERE fr.family_id = ? AND (fr.from_user_id = ? OR fr.to_user_id = ?)`,
-            [familyId, userId, userId]
+             [familyId, userId, userId]
         );
         return relationships;
+    },
+
+    // Get all families a user belongs to
+    async getUserFamilyMemberships(userId) {
+        const pool = getPool();
+        const [memberships] = await pool.query(`
+            SELECT fm.*, f.name as family_name, f.code as family_code, f.created_at as family_created_at
+            FROM family_members fm
+            JOIN families f ON fm.family_id = f.id
+            WHERE fm.user_id = ?
+            ORDER BY fm.joined_at DESC
+        `, [userId]);
+        return memberships;
+    },
+
+    // Get all family members with their details
+    async getFamilyMembersWithDetails(familyId) {
+        const pool = getPool();
+        const [members] = await pool.query(`
+            SELECT fm.*, u.first_name, u.last_name, u.email, u.phone, u.role as user_role, u.status as user_status
+            FROM family_members fm
+            JOIN users u ON fm.user_id = u.id
+            WHERE fm.family_id = ?
+            ORDER BY fm.joined_at ASC
+        `, [familyId]);
+        return members;
     }
 };
 

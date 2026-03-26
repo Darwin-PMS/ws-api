@@ -114,26 +114,21 @@ const getGrievanceById = async (req, res) => {
 // Create new grievance (user)
 const createGrievance = async (req, res) => {
     try {
-        const { user_id, title, description, category, priority = 'medium' } = req.body;
+        const userId = req.user.id;
+        const { title, description, category, priority = 'medium' } = req.body;
 
-        if (!user_id || !title || !description) {
+        if (!title || !description) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'User ID, title, and description are required' 
+                error: 'Title and description are required' 
             });
-        }
-
-        // Verify user exists
-        const [users] = await pool().query('SELECT id FROM users WHERE id = ?', [user_id]);
-        if (users.length === 0) {
-            return res.status(404).json({ success: false, error: 'User not found' });
         }
 
         const id = generateId();
         await pool().query(
             `INSERT INTO grievances (id, user_id, title, description, category, priority)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [id, user_id, title, description, category, priority]
+            [id, userId, title, description, category, priority]
         );
 
         const [newGrievance] = await pool().query('SELECT * FROM grievances WHERE id = ?', [id]);
@@ -312,6 +307,78 @@ const getUserGrievances = async (req, res) => {
     }
 };
 
+// Get user's grievances (by token)
+const getUserGrievancesByToken = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { page = 1, limit = 20 } = req.query;
+        const offset = (page - 1) * limit;
+
+        const [rows] = await pool().query(
+            'SELECT * FROM grievances WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+            [userId, parseInt(limit), parseInt(offset)]
+        );
+
+        const [[{ total }]] = await pool().query(
+            'SELECT COUNT(*) as total FROM grievances WHERE user_id = ?',
+            [userId]
+        );
+
+        res.json({
+            success: true,
+            data: rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching user grievances:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch grievances' });
+    }
+};
+
+// Update grievance (user can update their own)
+const updateGrievance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const { title, description, category, priority } = req.body;
+
+        const [existing] = await pool().query('SELECT * FROM grievances WHERE id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ success: false, error: 'Grievance not found' });
+        }
+
+        // Only allow update if user owns the grievance and it's still pending
+        if (existing[0].user_id !== userId) {
+            return res.status(403).json({ success: false, error: 'Not authorized to update this grievance' });
+        }
+
+        if (existing[0].status !== 'pending') {
+            return res.status(400).json({ success: false, error: 'Cannot update grievance after it has been processed' });
+        }
+
+        await pool().query(
+            `UPDATE grievances SET 
+                title = COALESCE(?, title),
+                description = COALESCE(?, description),
+                category = COALESCE(?, category),
+                priority = COALESCE(?, priority)
+             WHERE id = ?`,
+            [title, description, category, priority, id]
+        );
+
+        const [updated] = await pool().query('SELECT * FROM grievances WHERE id = ?', [id]);
+        res.json({ success: true, data: updated[0], message: 'Grievance updated successfully' });
+    } catch (error) {
+        console.error('Error updating grievance:', error);
+        res.status(500).json({ success: false, error: 'Failed to update grievance' });
+    }
+};
+
 module.exports = {
     getAllGrievances,
     getGrievanceById,
@@ -321,4 +388,6 @@ module.exports = {
     deleteGrievance,
     getGrievanceStats,
     getUserGrievances,
+    getUserGrievancesByToken,
+    updateGrievance,
 };

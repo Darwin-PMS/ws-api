@@ -69,14 +69,18 @@ const familyController = {
         try {
             const { familyId } = req.params;
             const userId = req.user.id;
+            const userRole = req.user.role;
 
-            // Check if user is a member
-            const isMember = await familyModel.isFamilyMember(familyId, userId);
-            if (!isMember) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You are not a member of this family'
-                });
+            // Admin can access any family
+            if (userRole !== 'admin') {
+                // Check if user is a member
+                const isMember = await familyModel.isFamilyMember(familyId, userId);
+                if (!isMember) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'You are not a member of this family'
+                    });
+                }
             }
 
             const family = await familyModel.getFamilyByIdWithCreator(familyId);
@@ -190,14 +194,18 @@ const familyController = {
         try {
             const { familyId } = req.params;
             const userId = req.user.id;
+            const userRole = req.user.role;
 
-            // Check if user is a member
-            const isMember = await familyModel.isFamilyMember(familyId, userId);
-            if (!isMember) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You are not a member of this family'
-                });
+            // Admin can access any family
+            if (userRole !== 'admin') {
+                // Check if user is a member
+                const isMember = await familyModel.isFamilyMember(familyId, userId);
+                if (!isMember) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'You are not a member of this family'
+                    });
+                }
             }
 
             const members = await familyModel.getFamilyMembers(familyId);
@@ -367,14 +375,18 @@ const familyController = {
         try {
             const { familyId } = req.params;
             const userId = req.user.id;
+            const userRole = req.user.role;
 
-            // Check if user is a member
-            const isMember = await familyModel.isFamilyMember(familyId, userId);
-            if (!isMember) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You are not a member of this family'
-                });
+            // Admin can access any family
+            if (userRole !== 'admin') {
+                // Check if user is a member
+                const isMember = await familyModel.isFamilyMember(familyId, userId);
+                if (!isMember) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'You are not a member of this family'
+                    });
+                }
             }
 
             const relationships = await familyModel.getRelationships(familyId);

@@ -13,6 +13,10 @@ const analyticsRoutes = require('./admin/analytics');
 const activityRoutes = require('./admin/activity');
 const grievanceRoutes = require('./admin/grievance');
 const menusRoutes = require('./admin/menus');
+const qrRoutes = require('./admin/qr');
+const safeRouteRoutes = require('./admin/safeRoute');
+const themeRoutes = require('./admin/theme');
+const childcareRoutes = require('./admin/childcare');
 
 router.use('/admin/auth', authRoutes);
 router.use('/admin/users', usersRoutes);
@@ -26,6 +30,10 @@ router.use('/admin/analytics', analyticsRoutes);
 router.use('/admin/activity', activityRoutes);
 router.use('/admin/grievance', grievanceRoutes);
 router.use('/admin/menus', menusRoutes);
+router.use('/admin/qr', qrRoutes);
+router.use('/admin/safe-route', safeRouteRoutes);
+router.use('/admin/themes', themeRoutes);
+router.use('/admin/childcare', childcareRoutes);
 
 router.get('/admin/health', (req, res) => {
   res.json({

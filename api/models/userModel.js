@@ -87,19 +87,31 @@ const userModel = {
     // Get all users (admin)
     async getAll(options = {}) {
         const pool = getPool();
-        const { limit = 50, offset = 0, role } = options;
+        const { limit = 50, offset = 0, role, search } = options;
 
-        let query = 'SELECT id, first_name, last_name, email, role, created_at FROM users';
+        let query = 'SELECT id, first_name, last_name, email, phone, role, is_active, is_verified, created_at FROM users';
         let countQuery = 'SELECT COUNT(*) as total FROM users';
         const params = [];
+        const conditions = [];
 
         if (role) {
-            query += ' WHERE role = ?';
-            countQuery += ' WHERE role = ?';
+            conditions.push('role = ?');
             params.push(role);
         }
 
-        query += ' LIMIT ? OFFSET ?';
+        if (search) {
+            conditions.push('(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR phone LIKE ?)');
+            const searchParam = `%${search}%`;
+            params.push(searchParam, searchParam, searchParam, searchParam);
+        }
+
+        if (conditions.length > 0) {
+            const whereClause = ' WHERE ' + conditions.join(' AND ');
+            query += whereClause;
+            countQuery += whereClause;
+        }
+
+        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
 
         const [users] = await pool.query(query, [...params, parseInt(limit), parseInt(offset)]);
         const [count] = await pool.query(countQuery, params);

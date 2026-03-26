@@ -486,6 +486,220 @@ const childcareController = {
             res.status(500).json({ success: false, message: 'Failed to get safety checks' });
         }
     },
+
+    // Admin: Get all children across all users
+    async adminGetAllChildren(req, res) {
+        try {
+            const pool = getPool();
+            const { limit = 50, offset = 0, search } = req.query;
+
+            let query = `SELECT c.*, u.first_name as parent_first_name, u.last_name as parent_last_name, u.email as parent_email
+                         FROM children c JOIN users u ON c.parent_id = u.id WHERE 1=1`;
+            const params = [];
+
+            if (search) {
+                query += ' AND (c.first_name LIKE ? OR c.last_name LIKE ? OR u.email LIKE ?)';
+                params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            }
+
+            query += ' ORDER BY c.created_at DESC LIMIT ? OFFSET ?';
+            params.push(parseInt(limit), parseInt(offset));
+
+            const [children] = await pool.query(query, params);
+            const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM children');
+
+            const formattedChildren = children.map(child => ({
+                id: child.id,
+                firstName: child.first_name,
+                lastName: child.last_name,
+                dateOfBirth: child.date_of_birth,
+                gender: child.gender,
+                bloodGroup: child.blood_group,
+                allergies: safeJsonParse(child.allergies, []),
+                medications: safeJsonParse(child.medications, []),
+                emergencyContact: child.emergency_contact,
+                notes: child.notes,
+                parentName: `${child.parent_first_name} ${child.parent_last_name}`,
+                parentEmail: child.parent_email,
+                createdAt: child.created_at,
+            }));
+
+            res.json({ success: true, data: formattedChildren, total });
+        } catch (error) {
+            console.error('Admin get children error:', error);
+            res.status(500).json({ success: false, message: 'Failed to get children' });
+        }
+    },
+
+    // Admin: Create child for any user
+    async adminCreateChild(req, res) {
+        try {
+            const pool = getPool();
+            const { parentId, firstName, lastName, dateOfBirth, gender, bloodGroup, allergies, medications, emergencyContact, notes, schoolLocation } = req.body;
+
+            if (!firstName || !dateOfBirth || !parentId) {
+                return res.status(400).json({ success: false, message: 'First name, date of birth, and parentId are required' });
+            }
+
+            const childId = uuidv4();
+
+            await pool.query(
+                `INSERT INTO children (id, parent_id, first_name, last_name, date_of_birth, gender, blood_group, allergies, medications, emergency_contact, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [childId, parentId, firstName, lastName || null, dateOfBirth, gender || null, bloodGroup || null, allergies ? JSON.stringify(allergies) : '[]', medications ? JSON.stringify(medications) : '[]', emergencyContact || null, notes || null]
+            );
+
+            if (schoolLocation) {
+                await pool.query(
+                    `INSERT INTO child_school_zones (id, child_id, name, latitude, longitude, radius, type) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [uuidv4(), childId, schoolLocation.name || 'School', schoolLocation.latitude, schoolLocation.longitude, schoolLocation.radius || 200, 'school']
+                );
+            }
+
+            res.status(201).json({
+                success: true,
+                message: 'Child added successfully',
+                data: { id: childId, firstName, lastName, dateOfBirth, gender, bloodGroup, parentId },
+            });
+        } catch (error) {
+            console.error('Admin create child error:', error);
+            res.status(500).json({ success: false, message: 'Failed to add child' });
+        }
+    },
+
+    // Admin: Update child
+    async adminUpdateChild(req, res) {
+        try {
+            const pool = getPool();
+            const { childId } = req.params;
+            const updates = req.body;
+
+            const [existing] = await pool.query('SELECT * FROM children WHERE id = ?', [childId]);
+            if (existing.length === 0) return res.status(404).json({ success: false, message: 'Child not found' });
+
+            const setClause = [];
+            const values = [];
+
+            for (const [key, value] of Object.entries(updates)) {
+                const dbField = FIELD_MAPPING[key];
+                if (dbField && ALLOWED_DB_FIELDS.includes(dbField)) {
+                    setClause.push(`${dbField} = ?`);
+                    values.push(key === 'allergies' || key === 'medications' ? JSON.stringify(value) : value);
+                }
+            }
+
+            if (setClause.length === 0) return res.status(400).json({ success: false, message: 'No valid fields to update' });
+
+            values.push(childId);
+            await pool.query(`UPDATE children SET ${setClause.join(', ')} WHERE id = ?`, values);
+            res.json({ success: true, message: 'Child updated successfully' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Failed to update child' });
+        }
+    },
+
+    // Admin: Get all schedules
+    async adminGetAllSchedules(req, res) {
+        try {
+            const pool = getPool();
+            const { limit = 50, offset = 0 } = req.query;
+
+            const [schedules] = await pool.query(
+                `SELECT cs.*, c.first_name as child_name, u.first_name as parent_first_name, u.last_name as parent_last_name
+                 FROM child_schedules cs
+                 JOIN children c ON cs.child_id = c.id
+                 JOIN users u ON cs.parent_id = u.id
+                 ORDER BY cs.created_at DESC
+                 LIMIT ? OFFSET ?`,
+                [parseInt(limit), parseInt(offset)]
+            );
+
+            res.json({ success: true, data: schedules.map(s => ({ ...s, repeatDays: safeJsonParse(s.repeat_days, []) })) });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Failed to get schedules' });
+        }
+    },
+
+    // Admin: Delete schedule
+    async adminDeleteSchedule(req, res) {
+        try {
+            const pool = getPool();
+            const { scheduleId } = req.params;
+
+            await pool.query('DELETE FROM child_schedules WHERE id = ?', [scheduleId]);
+            res.json({ success: true, message: 'Schedule deleted' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Failed to delete schedule' });
+        }
+    },
+
+    // Admin: Get all alerts
+    async adminGetAllAlerts(req, res) {
+        try {
+            const pool = getPool();
+            const { limit = 50, offset = 0, type } = req.query;
+
+            let query = `SELECT ca.*, c.first_name as child_name, u.first_name as parent_first_name, u.last_name as parent_last_name
+                         FROM child_alerts ca
+                         JOIN children c ON ca.child_id = c.id
+                         JOIN users u ON ca.parent_id = u.id
+                         WHERE 1=1`;
+            const params = [];
+
+            if (type) {
+                query += ' AND ca.alert_type = ?';
+                params.push(type);
+            }
+
+            query += ' ORDER BY ca.created_at DESC LIMIT ? OFFSET ?';
+            params.push(parseInt(limit), parseInt(offset));
+
+            const [alerts] = await pool.query(query, params);
+            res.json({ success: true, data: alerts });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Failed to get alerts' });
+        }
+    },
+
+    // Admin: Get school zones
+    async adminGetSchoolZones(req, res) {
+        try {
+            const pool = getPool();
+
+            const [zones] = await pool.query(
+                `SELECT csz.*, c.first_name as child_name, u.first_name as parent_first_name, u.last_name as parent_last_name
+                 FROM child_school_zones csz
+                 JOIN children c ON csz.child_id = c.id
+                 JOIN users u ON c.parent_id = u.id
+                 ORDER BY csz.created_at DESC`
+            );
+            res.json({ success: true, data: zones });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Failed to get school zones' });
+        }
+    },
+
+    // Admin: Create school zone
+    async adminCreateSchoolZone(req, res) {
+        try {
+            const pool = getPool();
+            const { childId, name, latitude, longitude, radius } = req.body;
+
+            if (!childId || !latitude || !longitude) {
+                return res.status(400).json({ success: false, message: 'childId, latitude, and longitude are required' });
+            }
+
+            const zoneId = uuidv4();
+            await pool.query(
+                `INSERT INTO child_school_zones (id, child_id, name, latitude, longitude, radius, type) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [zoneId, childId, name || 'School Zone', latitude, longitude, radius || 200, 'school']
+            );
+
+            res.status(201).json({ success: true, data: { id: zoneId } });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Failed to create school zone' });
+        }
+    },
 };
 
 // Helper function

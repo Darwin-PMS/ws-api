@@ -58,7 +58,7 @@ logger.info('server', 'Server starting...');
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || process.env.NODE_ENV === 'development') return callback(null, true);
+        if (!origin || process.env.NODE_ENV !== 'production') return callback(null, true);
         
         const allowedOrigins = [
             'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173',
@@ -74,7 +74,7 @@ app.use(cors({
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Time', 'X-Auth-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Time', 'X-Auth-Token', 'X-API-Version', 'X-Client-Type'],
     credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));

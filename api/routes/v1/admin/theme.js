@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const adminThemeController = require('../../../controllers/adminThemeController');
-const { authenticateToken } = require('../../../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../../../middleware/auth');
 
 router.use(authenticateToken);
+router.use(requireAdmin);
 
 router.get('/', adminThemeController.getAllThemes);
 router.get('/stats', adminThemeController.getThemeStats);

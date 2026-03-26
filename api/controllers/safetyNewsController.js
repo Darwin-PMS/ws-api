@@ -457,6 +457,187 @@ const safetyNewsController = {
             });
         }
     },
+
+    // Search news
+    async searchNews(req, res) {
+        try {
+            const pool = getPool();
+            const { keyword } = req.query;
+
+            if (!keyword) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Keyword is required',
+                });
+            }
+
+            const [news] = await pool.query(
+                `SELECT * FROM safety_news 
+                 WHERE is_active = TRUE 
+                 AND (title LIKE ? OR summary LIKE ? OR content LIKE ?)
+                 ORDER BY published_at DESC
+                 LIMIT 50`,
+                [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`]
+            );
+
+            const formattedNews = news.map(item => ({
+                id: item.id,
+                title: item.title,
+                summary: item.summary,
+                content: item.content,
+                category: item.category,
+                imageUrl: item.image_url,
+                author: item.author,
+                source: item.source,
+                publishedAt: item.published_at,
+                isFeatured: item.is_featured,
+                isActive: item.is_active,
+                viewsCount: item.views_count,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedNews.length,
+                data: formattedNews,
+            });
+        } catch (error) {
+            console.error('Search news error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to search news',
+            });
+        }
+    },
+
+    // Get latest news
+    async getLatestNews(req, res) {
+        try {
+            const pool = getPool();
+            const { limit = 10 } = req.query;
+
+            const [news] = await pool.query(
+                `SELECT * FROM safety_news 
+                 WHERE is_active = TRUE 
+                 ORDER BY published_at DESC 
+                 LIMIT ?`,
+                [parseInt(limit)]
+            );
+
+            const formattedNews = news.map(item => ({
+                id: item.id,
+                title: item.title,
+                summary: item.summary,
+                content: item.content,
+                category: item.category,
+                imageUrl: item.image_url,
+                author: item.author,
+                source: item.source,
+                publishedAt: item.published_at,
+                isFeatured: item.is_featured,
+                isActive: item.is_active,
+                viewsCount: item.views_count,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedNews.length,
+                data: formattedNews,
+            });
+        } catch (error) {
+            console.error('Get latest news error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get latest news',
+            });
+        }
+    },
+
+    // Get popular news
+    async getPopularNews(req, res) {
+        try {
+            const pool = getPool();
+            const { limit = 10 } = req.query;
+
+            const [news] = await pool.query(
+                `SELECT * FROM safety_news 
+                 WHERE is_active = TRUE 
+                 ORDER BY views_count DESC 
+                 LIMIT ?`,
+                [parseInt(limit)]
+            );
+
+            const formattedNews = news.map(item => ({
+                id: item.id,
+                title: item.title,
+                summary: item.summary,
+                content: item.content,
+                category: item.category,
+                imageUrl: item.image_url,
+                author: item.author,
+                source: item.source,
+                publishedAt: item.published_at,
+                isFeatured: item.is_featured,
+                isActive: item.is_active,
+                viewsCount: item.views_count,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedNews.length,
+                data: formattedNews,
+            });
+        } catch (error) {
+            console.error('Get popular news error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get popular news',
+            });
+        }
+    },
+
+    // Get news by category
+    async getNewsByCategory(req, res) {
+        try {
+            const pool = getPool();
+            const { categoryId } = req.params;
+            const { limit = 20 } = req.query;
+
+            const [news] = await pool.query(
+                `SELECT * FROM safety_news 
+                 WHERE category = ? AND is_active = TRUE 
+                 ORDER BY published_at DESC 
+                 LIMIT ?`,
+                [categoryId, parseInt(limit)]
+            );
+
+            const formattedNews = news.map(item => ({
+                id: item.id,
+                title: item.title,
+                summary: item.summary,
+                content: item.content,
+                category: item.category,
+                imageUrl: item.image_url,
+                author: item.author,
+                source: item.source,
+                publishedAt: item.published_at,
+                isFeatured: item.is_featured,
+                isActive: item.is_active,
+                viewsCount: item.views_count,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedNews.length,
+                data: formattedNews,
+            });
+        } catch (error) {
+            console.error('Get news by category error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get news by category',
+            });
+        }
+    },
 };
 
 module.exports = safetyNewsController;

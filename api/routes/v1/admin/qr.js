@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const qrController = require('../../../controllers/qrController');
-const { authenticateToken } = require('../../../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../../../middleware/auth');
 
 router.use(authenticateToken);
+router.use(requireAdmin);
 
 router.get('/all', qrController.adminGetAllQRCodes);
 router.delete('/revoke/:tokenId', qrController.adminRevokeQR);

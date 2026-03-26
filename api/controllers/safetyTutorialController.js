@@ -362,6 +362,142 @@ const safetyTutorialController = {
             });
         }
     },
+
+    // Search tutorials
+    async searchTutorials(req, res) {
+        try {
+            const pool = getPool();
+            const { keyword } = req.query;
+
+            if (!keyword) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Keyword is required',
+                });
+            }
+
+            const [tutorials] = await pool.query(
+                `SELECT * FROM safety_tutorials 
+                 WHERE is_active = TRUE 
+                 AND (title LIKE ? OR description LIKE ? OR content LIKE ?)
+                 ORDER BY created_at DESC
+                 LIMIT 50`,
+                [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`]
+            );
+
+            const formattedTutorials = tutorials.map(tutorial => ({
+                id: tutorial.id,
+                title: tutorial.title,
+                description: tutorial.description,
+                content: tutorial.content,
+                category: tutorial.category,
+                imageUrl: tutorial.image_url,
+                videoUrl: tutorial.video_url,
+                duration: tutorial.duration,
+                difficulty: tutorial.difficulty,
+                isPremium: tutorial.is_premium,
+                isActive: tutorial.is_active,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedTutorials.length,
+                data: formattedTutorials,
+            });
+        } catch (error) {
+            console.error('Search tutorials error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to search tutorials',
+            });
+        }
+    },
+
+    // Get tutorials by category
+    async getTutorialsByCategory(req, res) {
+        try {
+            const pool = getPool();
+            const { categoryId } = req.params;
+            const { limit = 20 } = req.query;
+
+            const [tutorials] = await pool.query(
+                `SELECT * FROM safety_tutorials 
+                 WHERE category = ? AND is_active = TRUE 
+                 ORDER BY created_at DESC 
+                 LIMIT ?`,
+                [categoryId, parseInt(limit)]
+            );
+
+            const formattedTutorials = tutorials.map(tutorial => ({
+                id: tutorial.id,
+                title: tutorial.title,
+                description: tutorial.description,
+                content: tutorial.content,
+                category: tutorial.category,
+                imageUrl: tutorial.image_url,
+                videoUrl: tutorial.video_url,
+                duration: tutorial.duration,
+                difficulty: tutorial.difficulty,
+                isPremium: tutorial.is_premium,
+                isActive: tutorial.is_active,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedTutorials.length,
+                data: formattedTutorials,
+            });
+        } catch (error) {
+            console.error('Get tutorials by category error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get tutorials by category',
+            });
+        }
+    },
+
+    // Get tutorials by difficulty
+    async getTutorialsByDifficulty(req, res) {
+        try {
+            const pool = getPool();
+            const { difficulty } = req.params;
+            const { limit = 20 } = req.query;
+
+            const [tutorials] = await pool.query(
+                `SELECT * FROM safety_tutorials 
+                 WHERE difficulty = ? AND is_active = TRUE 
+                 ORDER BY created_at DESC 
+                 LIMIT ?`,
+                [difficulty, parseInt(limit)]
+            );
+
+            const formattedTutorials = tutorials.map(tutorial => ({
+                id: tutorial.id,
+                title: tutorial.title,
+                description: tutorial.description,
+                content: tutorial.content,
+                category: tutorial.category,
+                imageUrl: tutorial.image_url,
+                videoUrl: tutorial.video_url,
+                duration: tutorial.duration,
+                difficulty: tutorial.difficulty,
+                isPremium: tutorial.is_premium,
+                isActive: tutorial.is_active,
+            }));
+
+            res.json({
+                success: true,
+                count: formattedTutorials.length,
+                data: formattedTutorials,
+            });
+        } catch (error) {
+            console.error('Get tutorials by difficulty error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get tutorials by difficulty',
+            });
+        }
+    },
 };
 
 module.exports = safetyTutorialController;

@@ -112,9 +112,9 @@ const userController = {
 
             // Save to user_locations table (main tracking table)
             await pool.query(
-                `INSERT INTO user_locations (id, user_id, latitude, longitude, status, address, speed, heading, accuracy, timestamp) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-                [locationId, req.params.id, latitude, longitude, status || 'safe', address || null, speed || 0, heading || 0, accuracy]
+                `INSERT INTO user_locations (id, user_id, latitude, longitude, status, address, speed, accuracy, timestamp) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                [locationId, req.params.id, latitude, longitude, status || 'safe', address || null, speed || 0, accuracy]
             );
 
             // Also save to location_history for mobile app history
@@ -124,13 +124,12 @@ const userController = {
                 [historyId, req.params.id, latitude, longitude, accuracy]
             );
 
-            // Update user_current_location for quick access
-            const currentLocationId = uuidv4();
+            // Update user_current_location for quick access (upsert by user_id)
             await pool.query(
                 `INSERT INTO user_current_location (id, user_id, latitude, longitude, accuracy) 
                  VALUES (?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE latitude = VALUES(latitude), longitude = VALUES(longitude), accuracy = VALUES(accuracy), updated_at = NOW()`,
-                [currentLocationId, req.params.id, latitude, longitude, accuracy]
+                [req.params.id, req.params.id, latitude, longitude, accuracy]
             );
 
             console.log('📍 API: Location saved successfully to user_locations');

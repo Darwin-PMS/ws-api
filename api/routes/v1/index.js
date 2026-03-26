@@ -40,6 +40,7 @@ const adminActivityRoutes = require('./admin/activity');
 const adminGrievanceRoutes = require('./admin/grievance');
 const adminMenusRoutes = require('./admin/menus');
 const adminThemeRoutes = require('./admin/theme');
+const adminChildcareRoutes = require('./admin/childcare');
 
 router.use('/mobile/auth', authRoutes);
 router.use('/mobile/users', usersRoutes);
@@ -80,6 +81,7 @@ router.use('/admin/activity', adminActivityRoutes);
 router.use('/admin/grievance', adminGrievanceRoutes);
 router.use('/admin/menus', adminMenusRoutes);
 router.use('/admin/themes', adminThemeRoutes);
+router.use('/admin/childcare', adminChildcareRoutes);
 
 router.get('/mobile/health', (req, res) => {
   res.json({

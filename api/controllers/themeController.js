@@ -456,80 +456,96 @@ const themeController = {
             const userId = req.user.id;
             const { mode, themeId } = req.body;
 
-            if (!mode && !themeId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Either mode (light/dark) or themeId is required',
-                });
-            }
-
             // Deactivate current assignments
             await pool.query(
                 'UPDATE user_themes SET is_active = false WHERE user_id = ?',
                 [userId]
             );
 
+            let assignedThemeId = null;
+            let assignedTheme = null;
+
             if (mode) {
-                // Find theme by mode (light or dark)
-                const themeName = mode === 'light' ? 'Light Default' : 'Dark Default';
+                // Find theme by mode (light or dark) - case insensitive
                 const [themes] = await pool.query(
-                    'SELECT * FROM themes WHERE name LIKE ? AND is_active = true',
-                    [`%${mode}%`]
+                    'SELECT * FROM themes WHERE LOWER(name) LIKE ? AND is_active = true LIMIT 1',
+                    [`%${mode.toLowerCase()}%`]
                 );
 
                 if (themes.length > 0) {
-                    const assignmentId = uuidv4();
-                    await pool.query(
-                        'INSERT INTO user_themes (id, user_id, theme_id, is_active) VALUES (?, ?, ?, true)',
-                        [assignmentId, userId, themes[0].id]
-                    );
+                    assignedThemeId = themes[0].id;
+                    assignedTheme = themes[0];
+                } else {
+                    // Fallback: create user_themes entry with mode stored separately
+                    // Try to get theme by ID from the themes table directly
+                    if (mode === 'light' && !themeId) {
+                        // Use light theme ID directly
+                        assignedThemeId = 'theme-light-default';
+                    } else if (mode === 'dark' && !themeId) {
+                        // Use dark theme ID directly
+                        assignedThemeId = 'theme-dark-default';
+                    }
                 }
             }
 
             if (themeId) {
+                assignedThemeId = themeId;
+            }
+
+            // Create the theme assignment
+            if (assignedThemeId) {
                 const assignmentId = uuidv4();
                 await pool.query(
-                    'INSERT INTO user_themes (id, user_id, theme_id, is_active) VALUES (?, ?, ?, true)',
-                    [assignmentId, userId, themeId]
+                    'INSERT INTO user_themes (id, user_id, theme_id, is_active) VALUES (?, ?, ?, true) ON DUPLICATE KEY UPDATE theme_id = VALUES(theme_id), is_active = true',
+                    [assignmentId, userId, assignedThemeId]
                 );
             }
 
-            // Return the current theme
-            const [userThemes] = await pool.query(
-                `SELECT t.* FROM themes t
-                 JOIN user_themes ut ON t.id = ut.theme_id
-                 WHERE ut.user_id = ? AND ut.is_active = true AND t.is_active = true`,
-                [userId]
-            );
-
-            let theme;
-            if (userThemes.length > 0) {
-                theme = {
-                    id: userThemes[0].id,
-                    name: userThemes[0].name,
-                    mode: userThemes[0].name.toLowerCase().includes('light') ? 'light' : 'dark',
-                    ...JSON.parse(userThemes[0].config),
-                };
-            } else {
-                // Return default
-                const [defaultTheme] = await pool.query(
-                    'SELECT * FROM themes WHERE is_default = true AND is_active = true LIMIT 1'
+            // Get the assigned theme
+            if (assignedTheme) {
+                res.json({
+                    success: true,
+                    message: 'Theme preference updated',
+                    data: {
+                        id: assignedTheme.id,
+                        name: assignedTheme.name,
+                        mode: mode,
+                        ...JSON.parse(assignedTheme.config || '{}'),
+                    },
+                });
+            } else if (assignedThemeId) {
+                // Get theme by ID
+                const [themes] = await pool.query(
+                    'SELECT * FROM themes WHERE id = ? AND is_active = true',
+                    [assignedThemeId]
                 );
-                if (defaultTheme.length > 0) {
-                    theme = {
-                        id: defaultTheme[0].id,
-                        name: defaultTheme[0].name,
-                        mode: defaultTheme[0].name.toLowerCase().includes('light') ? 'light' : 'dark',
-                        ...JSON.parse(defaultTheme[0].config),
-                    };
+                
+                if (themes.length > 0) {
+                    const theme = themes[0];
+                    res.json({
+                        success: true,
+                        message: 'Theme preference updated',
+                        data: {
+                            id: theme.id,
+                            name: theme.name,
+                            mode: mode,
+                            ...JSON.parse(theme.config || '{}'),
+                        },
+                    });
+                } else {
+                    res.json({
+                        success: true,
+                        message: 'Theme preference updated',
+                        data: { mode },
+                    });
                 }
+            } else {
+                res.json({
+                    success: true,
+                    message: 'Theme preference updated',
+                    data: { mode },
+                });
             }
-
-            res.json({
-                success: true,
-                message: 'Theme preference updated',
-                data: theme,
-            });
         } catch (error) {
             console.error('Set theme preference error:', error);
             res.status(500).json({

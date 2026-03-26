@@ -9,19 +9,23 @@ const familyLocationController = {
         try {
             const { familyId } = req.params;
             const userId = req.user.id;
+            const userRole = req.user.role;
 
             console.log('═══════════════════════════════════════');
             console.log('📍 GET FAMILY LOCATIONS API');
             console.log('Family ID:', familyId);
             console.log('User ID:', userId);
 
-            // Verify caller is a member of the family
-            const membership = await familyModel.getMemberByFamilyAndUser(familyId, userId);
-            if (!membership) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You are not a member of this family'
-                });
+            // Admin can access any family
+            if (userRole !== 'admin') {
+                // Verify caller is a member of the family
+                const membership = await familyModel.getMemberByFamilyAndUser(familyId, userId);
+                if (!membership) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'You are not a member of this family'
+                    });
+                }
             }
 
             // Get all family members
@@ -103,23 +107,27 @@ const familyLocationController = {
         try {
             const { familyId, userId } = req.params;
             const callerId = req.user.id;
+            const userRole = req.user.role;
 
-            // Verify caller is a member of the family
-            const membership = await familyModel.getMemberByFamilyAndUser(familyId, callerId);
-            if (!membership) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You are not a member of this family'
-                });
-            }
+            // Admin can access any family
+            if (userRole !== 'admin') {
+                // Verify caller is a member of the family
+                const membership = await familyModel.getMemberByFamilyAndUser(familyId, callerId);
+                if (!membership) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'You are not a member of this family'
+                    });
+                }
 
-            // Verify target user is a member of the family
-            const targetMembership = await familyModel.getMemberByFamilyAndUser(familyId, userId);
-            if (!targetMembership) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Member not found in this family'
-                });
+                // Verify target user is a member of the family
+                const targetMembership = await familyModel.getMemberByFamilyAndUser(familyId, userId);
+                if (!targetMembership) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Member not found in this family'
+                    });
+                }
             }
 
             // Get target user details
