@@ -85,6 +85,25 @@ const qrController = {
                 );
             }
             
+            // Generate QR image as base64
+            let qrImage = null;
+            if (qrCode) {
+                try {
+                    qrImage = await qrCode.toDataURL(tokenString, {
+                        width: 400,
+                        margin: 2,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    });
+                } catch (qrError) {
+                    console.log('QR image generation skipped:', qrError.message);
+                }
+            }
+            
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            
             res.status(201).json({
                 success: true,
                 data: {
@@ -95,7 +114,8 @@ const qrController = {
                     expiresAt: expiresAt,
                     maxUses: maxUses,
                     qrData: qrData,
-                    qrImageUrl: `/api/v1/mobile/qr/image/${tokenString}`
+                    qrImage: qrImage,
+                    qrImageUrl: `${baseUrl}/api/v1/mobile/qr/image/${tokenString}`
                 }
             });
         } catch (error) {
@@ -110,6 +130,7 @@ const qrController = {
             const pool = getPool();
             const userId = req.user.id;
             const { activeOnly } = req.query;
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
             
             let query = `SELECT * FROM qr_tokens WHERE user_id = ?`;
             const params = [userId];
@@ -125,19 +146,33 @@ const qrController = {
             res.json({
                 success: true,
                 count: tokens.length,
-                data: tokens.map(t => ({
-                    id: t.id,
-                    type: t.token_type,
-                    permissions: JSON.parse(t.permissions || '[]'),
-                    expiresAt: t.expires_at,
-                    maxUses: t.max_uses,
-                    useCount: t.use_count,
-                    isActive: t.is_active,
-                    createdAt: t.created_at,
-                    lastUsedAt: t.last_used_at,
-                    isExpired: t.expires_at && new Date(t.expires_at) < new Date(),
-                    isExhausted: t.max_uses && t.use_count >= t.max_uses
-                }))
+                data: tokens.map(t => {
+                    let qrData = {};
+                    try {
+                        if (t.qr_data) {
+                            qrData = JSON.parse(t.qr_data);
+                        }
+                    } catch (e) {}
+                    
+                    const tokenString = qrData.token || null;
+                    
+                    return {
+                        id: t.id,
+                        token: tokenString,
+                        type: t.token_type,
+                        permissions: JSON.parse(t.permissions || '[]'),
+                        expiresAt: t.expires_at,
+                        maxUses: t.max_uses,
+                        useCount: t.use_count,
+                        isActive: t.is_active,
+                        createdAt: t.created_at,
+                        lastUsedAt: t.last_used_at,
+                        isExpired: t.expires_at && new Date(t.expires_at) < new Date(),
+                        isExhausted: t.max_uses && t.use_count >= t.max_uses,
+                        qrData: t.qr_data,
+                        qrImageUrl: tokenString ? `${baseUrl}/api/v1/mobile/qr/image/${tokenString}` : null
+                    };
+                })
             });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Failed to get QR codes' });

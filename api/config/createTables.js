@@ -115,7 +115,7 @@ async function createTables() {
         // Location history table
         await pool.query(`
             CREATE TABLE IF NOT EXISTS location_history (
-                id VARCHAR(36) PRIMARY KEY,
+                id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id VARCHAR(36) NOT NULL,
                 latitude DECIMAL(10, 8) NOT NULL,
                 longitude DECIMAL(11, 8) NOT NULL,
@@ -128,7 +128,7 @@ async function createTables() {
         // User locations table (for tracking with status, speed, heading, address)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS user_locations (
-                id VARCHAR(36) PRIMARY KEY,
+                id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id VARCHAR(36) NOT NULL,
                 latitude DECIMAL(10, 8) NOT NULL,
                 longitude DECIMAL(11, 8) NOT NULL,
@@ -149,8 +149,7 @@ async function createTables() {
         // Current location table (stores latest location for each user)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS user_current_location (
-                id VARCHAR(36) PRIMARY KEY,
-                user_id VARCHAR(36) NOT NULL UNIQUE,
+                user_id VARCHAR(36) PRIMARY KEY,
                 latitude DECIMAL(10, 8) NOT NULL,
                 longitude DECIMAL(11, 8) NOT NULL,
                 accuracy DECIMAL(6,2),
@@ -963,6 +962,7 @@ async function createTables() {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS grievances (
                 id VARCHAR(36) PRIMARY KEY,
+                case_id VARCHAR(20) UNIQUE,
                 user_id VARCHAR(36) NOT NULL,
                 title VARCHAR(255) NOT NULL,
                 description TEXT NOT NULL,
@@ -976,7 +976,25 @@ async function createTables() {
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 INDEX idx_grievances_user (user_id),
                 INDEX idx_grievances_status (status),
-                INDEX idx_grievances_priority (priority)
+                INDEX idx_grievances_priority (priority),
+                INDEX idx_grievances_case_id (case_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
+        // Grievance messages table - for conversations/comments on grievances
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS grievance_messages (
+                id VARCHAR(36) PRIMARY KEY,
+                grievance_id VARCHAR(36) NOT NULL,
+                user_id VARCHAR(36) NOT NULL,
+                message TEXT NOT NULL,
+                is_admin BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (grievance_id) REFERENCES grievances(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_grievance_messages_grievance (grievance_id),
+                INDEX idx_grievance_messages_user (user_id),
+                INDEX idx_grievance_messages_created (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         `);
 

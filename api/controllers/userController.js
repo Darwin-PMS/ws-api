@@ -108,32 +108,30 @@ const userController = {
             console.log('📍 API: Saving location for user:', req.params.id, { latitude, longitude, accuracy, status, speed, heading });
             
             const pool = getPool();
-            const locationId = uuidv4();
 
-            // Save to user_locations table (main tracking table)
-            await pool.query(
-                `INSERT INTO user_locations (id, user_id, latitude, longitude, status, address, speed, accuracy, timestamp) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-                [locationId, req.params.id, latitude, longitude, status || 'safe', address || null, speed || 0, accuracy]
+            // Save to user_locations table (main tracking table) - id auto-increment
+            const [locationResult] = await pool.query(
+                `INSERT INTO user_locations (user_id, latitude, longitude, status, address, speed, accuracy, timestamp) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+                [req.params.id, latitude, longitude, status || 'safe', address || null, speed || 0, accuracy]
             );
 
             // Also save to location_history for mobile app history
-            const historyId = uuidv4();
             await pool.query(
-                'INSERT INTO location_history (id, user_id, latitude, longitude, accuracy) VALUES (?, ?, ?, ?, ?)',
-                [historyId, req.params.id, latitude, longitude, accuracy]
+                'INSERT INTO location_history (user_id, latitude, longitude, accuracy) VALUES (?, ?, ?, ?)',
+                [req.params.id, latitude, longitude, accuracy]
             );
 
             // Update user_current_location for quick access (upsert by user_id)
             await pool.query(
-                `INSERT INTO user_current_location (id, user_id, latitude, longitude, accuracy) 
-                 VALUES (?, ?, ?, ?, ?)
+                `INSERT INTO user_current_location (user_id, latitude, longitude, accuracy, updated_at) 
+                 VALUES (?, ?, ?, ?, NOW())
                  ON DUPLICATE KEY UPDATE latitude = VALUES(latitude), longitude = VALUES(longitude), accuracy = VALUES(accuracy), updated_at = NOW()`,
-                [req.params.id, req.params.id, latitude, longitude, accuracy]
+                [req.params.id, latitude, longitude, accuracy]
             );
 
             console.log('📍 API: Location saved successfully to user_locations');
-            res.status(201).json({ success: true, id: locationId, message: 'Location saved' });
+            res.status(201).json({ success: true, id: locationResult.insertId, message: 'Location saved' });
         } catch (error) {
             console.error('📍 API: Save location error:', error);
             res.status(500).json({ success: false, message: 'Failed to save location' });
@@ -311,6 +309,42 @@ const userController = {
             res.json({ success: true, message: 'Settings updated', settings: updatedSettings[0] });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Failed to update settings' });
+        }
+    },
+
+    async getSupportTeam(req, res) {
+        try {
+            const pool = getPool();
+            
+            const [admins] = await pool.query(
+                `SELECT * FROM users 
+                 WHERE role LIKE '%admin%' OR role LIKE '%support%' OR role LIKE '%responder%' OR role LIKE '%supervisor%'
+                 ORDER BY first_name ASC`
+            );
+
+            console.log('Support team query - found:', admins.length, 'admins/support');
+
+            const formattedAdmins = admins.map(admin => ({
+                id: admin.id,
+                name: `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || admin.email,
+                firstName: admin.first_name,
+                lastName: admin.last_name,
+                email: admin.email,
+                phone: admin.phone,
+                role: admin.role,
+                isOnline: admin.is_active === 1,
+            }));
+
+            res.json({
+                success: true,
+                data: formattedAdmins,
+            });
+        } catch (error) {
+            console.error('Get support team error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get support team',
+            });
         }
     }
 };

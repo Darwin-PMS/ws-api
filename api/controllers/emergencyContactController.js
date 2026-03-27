@@ -345,6 +345,92 @@ const emergencyContactController = {
             });
         }
     },
+
+    async getAllEmergencyContactsWithSupport(req, res) {
+        try {
+            const pool = getPool();
+            const userId = req.user.id;
+
+            const [defaultContacts] = await pool.query(
+                'SELECT * FROM default_emergency_contacts WHERE is_active = TRUE ORDER BY display_order'
+            );
+
+            const [userContacts] = await pool.query(
+                'SELECT * FROM emergency_contacts WHERE user_id = ? ORDER BY is_primary DESC, created_at DESC',
+                [userId]
+            );
+
+            const [supportTeam] = await pool.query(
+                `SELECT * FROM users 
+                 WHERE role LIKE '%admin%' OR role LIKE '%support%' OR role LIKE '%responder%' OR role LIKE '%supervisor%'
+                 ORDER BY first_name ASC`
+            );
+
+            console.log('Support team found:', supportTeam.length);
+
+            const userContactsWithUserId = await Promise.all(userContacts.map(async (c) => {
+                let linkedUserId = null;
+                let isAppUser = false;
+                
+                const cleanPhone = (c.phone || '').replace(/[^\d]/g, '');
+                if (cleanPhone.length >= 10) {
+                    const [users] = await pool.query(
+                        `SELECT id FROM users WHERE REPLACE(REPLACE(REPLACE(REPLACE(phone, '-', ''), ' ', ''), '(', ''), ')', '') LIKE ? LIMIT 1`,
+                        [`%${cleanPhone.slice(-10)}%`]
+                    );
+                    if (users.length > 0) {
+                        linkedUserId = users[0].id;
+                        isAppUser = true;
+                    }
+                }
+                
+                return {
+                    id: c.id,
+                    userId: linkedUserId,
+                    name: c.name,
+                    phone: c.phone,
+                    relationship: c.relationship,
+                    isPrimary: c.is_primary,
+                    notes: c.notes,
+                    contactType: c.contact_type,
+                    source: 'user',
+                    isAppUser: isAppUser,
+                };
+            }));
+
+            res.json({
+                success: true,
+                data: {
+                    defaultContacts: defaultContacts.map(c => ({
+                        id: c.id,
+                        name: c.name,
+                        phone: c.phone,
+                        description: c.description,
+                        serviceType: c.service_type,
+                        icon: c.icon,
+                        source: 'default',
+                    })),
+                    userContacts: userContactsWithUserId,
+                    supportTeam: supportTeam.map(s => ({
+                        id: s.id,
+                        name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email,
+                        firstName: s.first_name,
+                        lastName: s.last_name,
+                        email: s.email,
+                        phone: s.phone,
+                        role: s.role,
+                        source: 'support',
+                    })),
+                },
+            });
+        } catch (error) {
+            console.error('Get all emergency contacts with support error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get emergency contacts',
+            });
+        }
+    },
 };
 
 module.exports = emergencyContactController;

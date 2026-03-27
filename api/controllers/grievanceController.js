@@ -5,6 +5,25 @@ const pool = () => getPool();
 
 const generateId = () => uuidv4();
 
+const generateCaseId = async () => {
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const prefix = `GV-${dateStr}-`;
+    
+    const [lastGrievance] = await pool().query(
+        `SELECT case_id FROM grievances WHERE case_id LIKE ? ORDER BY case_id DESC LIMIT 1`,
+        [`${prefix}%`]
+    );
+    
+    let sequence = 1;
+    if (lastGrievance.length > 0 && lastGrievance[0].case_id) {
+        const lastSequence = parseInt(lastGrievance[0].case_id.split('-')[2], 10);
+        sequence = lastSequence + 1;
+    }
+    
+    return `${prefix}${String(sequence).padStart(7, '0')}`;
+};
+
 // ============================================
 // GRIEVANCES
 // ============================================
@@ -125,10 +144,11 @@ const createGrievance = async (req, res) => {
         }
 
         const id = generateId();
+        const caseId = await generateCaseId();
         await pool().query(
-            `INSERT INTO grievances (id, user_id, title, description, category, priority)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [id, userId, title, description, category, priority]
+            `INSERT INTO grievances (id, case_id, user_id, title, description, category, priority)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [id, caseId, userId, title, description, category, priority]
         );
 
         const [newGrievance] = await pool().query('SELECT * FROM grievances WHERE id = ?', [id]);
@@ -379,6 +399,148 @@ const updateGrievance = async (req, res) => {
     }
 };
 
+// ============================================
+// GRIEVANCE MESSAGES (Conversations)
+// ============================================
+
+const getGrievanceWithMessages = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const isAdmin = req.user.role === 'admin';
+
+        const [grievance] = await pool().query(`
+            SELECT g.*, 
+                   u.first_name as user_first_name, 
+                   u.last_name as user_last_name, 
+                   u.email as user_email,
+                   u.phone as user_phone,
+                   a.first_name as assigned_first_name,
+                   a.last_name as assigned_last_name
+            FROM grievances g
+            LEFT JOIN users u ON g.user_id = u.id
+            LEFT JOIN users a ON g.assigned_to = a.id
+            WHERE g.id = ?
+        `, [id]);
+
+        if (grievance.length === 0) {
+            return res.status(404).json({ success: false, error: 'Grievance not found' });
+        }
+
+        if (!isAdmin && grievance[0].user_id !== userId) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const [messages] = await pool().query(`
+            SELECT gm.*, 
+                   u.first_name as sender_first_name,
+                   u.last_name as sender_last_name
+            FROM grievance_messages gm
+            LEFT JOIN users u ON gm.user_id = u.id
+            WHERE gm.grievance_id = ?
+            ORDER BY gm.created_at ASC
+        `, [id]);
+
+        res.json({ 
+            success: true, 
+            data: {
+                ...grievance[0],
+                messages
+            } 
+        });
+    } catch (error) {
+        console.error('Error fetching grievance with messages:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch grievance details' });
+    }
+};
+
+const addGrievanceMessage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const isAdmin = req.user.role === 'admin';
+        const { message } = req.body;
+
+        if (!message || !message.trim()) {
+            return res.status(400).json({ success: false, error: 'Message is required' });
+        }
+
+        const [grievance] = await pool().query(
+            'SELECT * FROM grievances WHERE id = ?',
+            [id]
+        );
+
+        if (grievance.length === 0) {
+            return res.status(404).json({ success: false, error: 'Grievance not found' });
+        }
+
+        if (!isAdmin && grievance[0].user_id !== userId) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const messageId = generateId();
+        await pool().query(
+            `INSERT INTO grievance_messages (id, grievance_id, user_id, message, is_admin)
+             VALUES (?, ?, ?, ?, ?)`,
+            [messageId, id, userId, message.trim(), isAdmin]
+        );
+
+        const [newMessage] = await pool().query(`
+            SELECT gm.*, 
+                   u.first_name as sender_first_name,
+                   u.last_name as sender_last_name
+            FROM grievance_messages gm
+            LEFT JOIN users u ON gm.user_id = u.id
+            WHERE gm.id = ?
+        `, [messageId]);
+
+        res.status(201).json({ 
+            success: true, 
+            data: newMessage[0],
+            message: 'Message sent successfully' 
+        });
+    } catch (error) {
+        console.error('Error adding grievance message:', error);
+        res.status(500).json({ success: false, error: 'Failed to send message' });
+    }
+};
+
+const getGrievanceMessages = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const isAdmin = req.user.role === 'admin';
+
+        const [grievance] = await pool().query(
+            'SELECT * FROM grievances WHERE id = ?',
+            [id]
+        );
+
+        if (grievance.length === 0) {
+            return res.status(404).json({ success: false, error: 'Grievance not found' });
+        }
+
+        if (!isAdmin && grievance[0].user_id !== userId) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const [messages] = await pool().query(`
+            SELECT gm.*, 
+                   u.first_name as sender_first_name,
+                   u.last_name as sender_last_name
+            FROM grievance_messages gm
+            LEFT JOIN users u ON gm.user_id = u.id
+            WHERE gm.grievance_id = ?
+            ORDER BY gm.created_at ASC
+        `, [id]);
+
+        res.json({ success: true, data: messages });
+    } catch (error) {
+        console.error('Error fetching messages:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch messages' });
+    }
+};
+
 module.exports = {
     getAllGrievances,
     getGrievanceById,
@@ -390,4 +552,7 @@ module.exports = {
     getUserGrievances,
     getUserGrievancesByToken,
     updateGrievance,
+    getGrievanceWithMessages,
+    addGrievanceMessage,
+    getGrievanceMessages,
 };

@@ -17,9 +17,9 @@ const sosController = {
             // Save to user_locations with SOS status
             try {
                 await pool.query(
-                    `INSERT INTO user_locations (id, user_id, latitude, longitude, status, timestamp) 
-                     VALUES (?, ?, ?, ?, 'sos', NOW())`,
-                    [uuidv4(), req.user.id, latitude, longitude]
+                    `INSERT INTO user_locations (user_id, latitude, longitude, status, timestamp) 
+                     VALUES (?, ?, ?, 'sos', NOW())`,
+                    [req.user.id, latitude, longitude]
                 );
             } catch (locError) {
                 console.log('Could not save to user_locations:', locError.message);
@@ -88,18 +88,6 @@ const sosController = {
                 ['resolved', req.params.id]
             );
 
-            // Update user_locations status back to safe
-            try {
-                await pool.query(
-                    `INSERT INTO user_locations (id, user_id, latitude, longitude, status, timestamp) 
-                     SELECT ?, user_id, latitude, longitude, 'safe', NOW() 
-                     FROM sos_alerts WHERE id = ?`,
-                    [uuidv4(), req.params.id]
-                );
-            } catch (locError) {
-                console.log('Could not update user_locations:', locError.message);
-            }
-
             res.json({ success: true, message: 'SOS alert resolved' });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Failed to resolve SOS' });
@@ -130,9 +118,9 @@ const sosController = {
             // Save to user_locations with SOS status
             try {
                 await pool.query(
-                    `INSERT INTO user_locations (id, user_id, latitude, longitude, status, timestamp) 
-                     VALUES (?, ?, ?, ?, 'sos', NOW())`,
-                    [uuidv4(), targetUserId, location.latitude, location.longitude]
+                    `INSERT INTO user_locations (user_id, latitude, longitude, status, timestamp) 
+                     VALUES (?, ?, ?, 'sos', NOW())`,
+                    [targetUserId, location.latitude, location.longitude]
                 );
             } catch (locError) {
                 console.log('Could not save location update:', locError.message);

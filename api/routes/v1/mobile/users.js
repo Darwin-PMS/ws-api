@@ -14,6 +14,9 @@ router.get('/emergency-contacts/default', authenticateToken, emergencyContactCon
 router.get('/emergency-contacts/preferences', authenticateToken, emergencyContactController.getUserPreferences);
 router.put('/emergency-contacts/preferences', authenticateToken, emergencyContactController.updateUserPreferences);
 
+router.get('/support-team', authenticateToken, userController.getSupportTeam);
+router.get('/emergency-contacts/all-with-support', authenticateToken, emergencyContactController.getAllEmergencyContactsWithSupport);
+
 router.get('/:id/emergency-contacts', authenticateToken, userController.getEmergencyContacts);
 router.post('/:id/emergency-contacts', authenticateToken, userController.addEmergencyContact);
 router.put('/:id/emergency-contacts/:contactId', authenticateToken, emergencyContactController.updateUserContact);

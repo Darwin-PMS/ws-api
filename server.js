@@ -174,12 +174,51 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// WebSocket stats endpoint
+// WebSocket stats endpoint (public for debugging)
 app.get('/api/ws/stats', (req, res) => {
     if (!wsServer) {
         return res.status(503).json({ success: false, message: 'WebSocket not available' });
     }
-    res.json({ success: true, stats: wsServer.getStats() });
+    const stats = wsServer.getStats();
+    const userConnections = [];
+    stats.userConnectionsArray?.forEach((userId) => {
+        userConnections.push(userId);
+    });
+    res.json({ 
+        success: true, 
+        stats: {
+            totalClients: stats.totalClients,
+            connectedUsers: userConnections,
+            activeShares: stats.activeShares
+        }
+    });
+});
+
+// Check if specific user is connected (public for debugging)
+app.get('/api/ws/check/:userId', (req, res) => {
+    if (!wsServer) {
+        return res.status(503).json({ success: false, message: 'WebSocket not available' });
+    }
+    const isConnected = wsServer.isUserConnected(req.params.userId);
+    res.json({ success: true, userId: req.params.userId, isConnected });
+});
+
+// Check specific user by phone (public for debugging)
+app.get('/api/ws/check-phone/:phone', (req, res) => {
+    if (!wsServer) {
+        return res.status(503).json({ success: false, message: 'WebSocket not available' });
+    }
+    const pool = getPool();
+    pool.query('SELECT id FROM users WHERE REPLACE(REPLACE(REPLACE(phone, "-", ""), " ", ""), "(", "") LIKE ? LIMIT 1', 
+        [`%${req.params.phone.replace(/[^\d]/g, '').slice(-10)}%`]
+    ).then(([users]) => {
+        if (users.length > 0) {
+            const isConnected = wsServer.isUserConnected(users[0].id);
+            res.json({ success: true, phone: req.params.phone, userId: users[0].id, isConnected });
+        } else {
+            res.json({ success: false, message: 'User not found', phone: req.params.phone });
+        }
+    });
 });
 
 // Get server logs (for debugging)
