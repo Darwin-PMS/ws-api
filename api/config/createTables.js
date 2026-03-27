@@ -1199,6 +1199,24 @@ async function dropAllTables() {
             WHERE table_schema = ?
         `, [dbConfig.database]);
 
+        // Cylinder Verifications table - for saving cylinder verification history
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS cylinder_verifications (
+                id VARCHAR(36) PRIMARY KEY,
+                user_id VARCHAR(36) NOT NULL,
+                region VARCHAR(10) DEFAULT 'IN',
+                cylinder_number VARCHAR(100),
+                status VARCHAR(50),
+                verification_data JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_cylinder_user (user_id),
+                INDEX idx_cylinder_number (cylinder_number),
+                INDEX idx_cylinder_status (status),
+                INDEX idx_cylinder_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
         // Disable foreign key checks
         await pool.query('SET FOREIGN_KEY_CHECKS = 0');
 
