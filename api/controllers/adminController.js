@@ -565,6 +565,63 @@ const adminController = {
         }
     },
 
+    // Control device (admin) - IoT control
+    async controlDevice(req, res) {
+        try {
+            const { id } = req.params;
+            const pool = getPool();
+
+            const [devices] = await pool.query('SELECT * FROM home_devices WHERE id = ?', [id]);
+            if (devices.length === 0) {
+                return res.status(404).json({ success: false, message: 'Device not found' });
+            }
+
+            const { brightness, temperature, speed, isLocked, status, ...otherControls } = req.body;
+            const updates = [];
+            const params = [];
+
+            if (brightness !== undefined) {
+                updates.push('brightness = ?');
+                params.push(brightness);
+            }
+            if (temperature !== undefined) {
+                updates.push('temperature = ?');
+                params.push(temperature);
+            }
+            if (speed !== undefined) {
+                updates.push('speed = ?');
+                params.push(speed);
+            }
+            if (isLocked !== undefined) {
+                updates.push('is_locked = ?');
+                params.push(isLocked);
+            }
+            if (status !== undefined) {
+                updates.push('status = ?');
+                params.push(status);
+            }
+
+            // Handle other control values
+            for (const [key, value] of Object.entries(otherControls)) {
+                updates.push(`${key} = ?`);
+                params.push(value);
+            }
+
+            if (updates.length === 0) {
+                return res.status(400).json({ success: false, message: 'No control values provided' });
+            }
+
+            params.push(id);
+            await pool.query(`UPDATE home_devices SET ${updates.join(', ')} WHERE id = ?`, params);
+
+            const [updatedDevices] = await pool.query('SELECT * FROM home_devices WHERE id = ?', [id]);
+            res.json({ success: true, device: updatedDevices[0] });
+        } catch (error) {
+            console.error('Control device error:', error);
+            res.status(500).json({ success: false, message: 'Failed to control device' });
+        }
+    },
+
     // Delete device (admin)
     async deleteDevice(req, res) {
         try {
@@ -575,6 +632,32 @@ const adminController = {
             res.json({ success: true, message: 'Device deleted successfully' });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Failed to delete device' });
+        }
+    },
+
+    // Get device statistics
+    async getDeviceStats(req, res) {
+        try {
+            const pool = getPool();
+
+            const [[totalDevices]] = await pool.query('SELECT COUNT(*) as count FROM home_devices');
+            const [[activeDevices]] = await pool.query("SELECT COUNT(*) as count FROM home_devices WHERE status = 'on'");
+            const [[devicesByType]] = await pool.query('SELECT device_type, COUNT(*) as count FROM home_devices GROUP BY device_type');
+            const [[devicesByRoom]] = await pool.query('SELECT room, COUNT(*) as count FROM home_devices WHERE room IS NOT NULL AND room != "" GROUP BY room');
+
+            res.json({
+                success: true,
+                stats: {
+                    total: totalDevices.count,
+                    active: activeDevices.count,
+                    inactive: totalDevices.count - activeDevices.count,
+                    byType: devicesByType,
+                    byRoom: devicesByRoom,
+                }
+            });
+        } catch (error) {
+            console.error('Device stats error:', error);
+            res.status(500).json({ success: false, message: 'Failed to get device statistics' });
         }
     },
 
