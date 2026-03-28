@@ -11,7 +11,7 @@ const authController = {
     // Register new user
     async register(req, res) {
         try {
-            const { firstName, lastName, email, phone, password, role } = req.body;
+            const { firstName, lastName, email, phone, password, role, gender } = req.body;
 
             // Validate required fields
             const missingFields = [];
@@ -63,6 +63,15 @@ const authController = {
                 });
             }
 
+            // Validate gender if provided
+            const validGenders = ['female', 'male', 'transgender', 'other', 'prefer_not_to_say'];
+            if (gender && !validGenders.includes(gender)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid gender. Must be one of: ${validGenders.join(', ')}`
+                });
+            }
+
             // Check if user exists
             const existingUser = await userModel.findByEmail(email.trim().toLowerCase());
             if (existingUser) {
@@ -76,7 +85,8 @@ const authController = {
                 email: email.trim().toLowerCase(),
                 phone: phone ? phone.trim() : null,
                 password: password,
-                role: role || 'woman'
+                role: role || 'woman',
+                gender: gender || null
             });
 
             // Generate tokens

@@ -109,7 +109,7 @@ const userController = {
             
             const pool = getPool();
 
-            // Save to user_locations table (main tracking table) - id auto-increment
+            // Save to user_locations table (main tracking table)
             const [locationResult] = await pool.query(
                 `INSERT INTO user_locations (user_id, latitude, longitude, status, address, speed, accuracy, timestamp) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
@@ -130,7 +130,7 @@ const userController = {
                 [req.params.id, latitude, longitude, accuracy]
             );
 
-            console.log('📍 API: Location saved successfully to user_locations');
+            console.log('📍 API: Location saved successfully');
             res.status(201).json({ success: true, id: locationResult.insertId, message: 'Location saved' });
         } catch (error) {
             console.error('📍 API: Save location error:', error);

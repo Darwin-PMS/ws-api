@@ -42,6 +42,8 @@ const adminGrievanceRoutes = require('./admin/grievance');
 const adminMenusRoutes = require('./admin/menus');
 const adminThemeRoutes = require('./admin/theme');
 const adminChildcareRoutes = require('./admin/childcare');
+const adminZonesRoutes = require('./admin/zones');
+const mobileZonesRoutes = require('./mobile/zones');
 
 router.use('/mobile/auth', authRoutes);
 router.use('/mobile/users', usersRoutes);
@@ -84,6 +86,16 @@ router.use('/admin/grievance', adminGrievanceRoutes);
 router.use('/admin/menus', adminMenusRoutes);
 router.use('/admin/themes', adminThemeRoutes);
 router.use('/admin/childcare', adminChildcareRoutes);
+router.use('/admin/zones', adminZonesRoutes);
+router.use('/mobile/zones', mobileZonesRoutes);
+
+// Mobile admin routes (for mobile app admin features)
+router.use('/mobile/admin/zones', adminZonesRoutes);
+
+// Debug route to test zone endpoints
+router.get('/debug/zones-test', (req, res) => {
+    res.json({ success: true, message: 'Zone routes working!' });
+});
 
 router.get('/mobile/health', (req, res) => {
   res.json({

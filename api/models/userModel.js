@@ -14,7 +14,7 @@ const userModel = {
     async findById(id) {
         const pool = getPool();
         const [users] = await pool.query(
-            'SELECT id, first_name, last_name, email, phone, role, created_at FROM users WHERE id = ?',
+            'SELECT id, first_name, last_name, email, phone, role, gender, created_at FROM users WHERE id = ?',
             [id]
         );
         return users[0] || null;
@@ -23,14 +23,14 @@ const userModel = {
     // Create new user
     async create(userData) {
         const pool = getPool();
-        const { firstName, lastName, email, phone, password, role } = userData;
+        const { firstName, lastName, email, phone, password, role, gender } = userData;
         const hashedPassword = require('bcryptjs').hashSync(password, 10);
         const userId = uuidv4();
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
         await pool.query(
-            'INSERT INTO users (id, first_name, last_name, email, phone, password, role, verification_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [userId, firstName, lastName, email, phone, hashedPassword, role || 'woman', verificationCode]
+            'INSERT INTO users (id, first_name, last_name, email, phone, password, role, gender, verification_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [userId, firstName, lastName, email, phone, hashedPassword, role || 'woman', gender || null, verificationCode]
         );
 
         // Create default settings
@@ -39,13 +39,13 @@ const userModel = {
             [uuidv4(), userId]
         );
 
-        return { id: userId, firstName, lastName, email, role: role || 'woman' };
+        return { id: userId, firstName, lastName, email, role: role || 'woman', gender: gender || null };
     },
 
     // Update user
     async update(id, userData) {
         const pool = getPool();
-        const { firstName, lastName, phone, role } = userData;
+        const { firstName, lastName, phone, role, gender } = userData;
 
         const updates = [];
         const params = [];
@@ -65,6 +65,10 @@ const userModel = {
         if (role !== undefined) {
             updates.push('role = ?');
             params.push(role);
+        }
+        if (gender !== undefined) {
+            updates.push('gender = ?');
+            params.push(gender);
         }
 
         if (updates.length === 0) return true;
