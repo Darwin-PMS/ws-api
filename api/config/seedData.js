@@ -52,6 +52,15 @@ async function seedDefaultData() {
         // Seed default emergency contacts
         await seedDefaultEmergencyContacts(pool);
 
+        // Seed Sugar Shield food products
+        try {
+            const { seedFoodProducts } = require('./seed/sugarShieldProducts');
+            await seedFoodProducts();
+            console.log('Sugar Shield food products seeded successfully');
+        } catch (error) {
+            console.error('Error seeding Sugar Shield products:', error.message);
+        }
+
         // Mark as seeded
         await markAsSeeded();
 

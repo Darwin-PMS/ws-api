@@ -1205,6 +1205,134 @@ async function dropAllTables() {
             WHERE table_schema = ?
         `, [dbConfig.database]);
 
+        // Sugar Shield - Food Products table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS food_products (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                barcode VARCHAR(100) UNIQUE,
+                product_name VARCHAR(255) NOT NULL,
+                brand_name VARCHAR(255),
+                category VARCHAR(100),
+                subcategory VARCHAR(100),
+                sugar_per_serving DECIMAL(10,2),
+                sugar_per_pack DECIMAL(10,2),
+                serving_size VARCHAR(50),
+                serving_weight_grams INT,
+                total_weight_grams INT,
+                ingredients TEXT,
+                hidden_sugar_flag BOOLEAN DEFAULT 0,
+                hidden_sugar_ingredients JSON,
+                preservatives JSON,
+                health_score INT DEFAULT 5,
+                caffeine_mg DECIMAL(10,2),
+                sodium_mg DECIMAL(10,2),
+                fat_grams DECIMAL(10,2),
+                protein_grams DECIMAL(10,2),
+                fiber_grams DECIMAL(10,2),
+                calories INT,
+                image_url VARCHAR(500),
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_barcode (barcode),
+                INDEX idx_category (category),
+                INDEX idx_brand (brand_name),
+                INDEX idx_health_score (health_score)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
+        // Sugar Shield - User Health Profiles table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS user_health_profiles (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                user_id VARCHAR(36) NOT NULL,
+                has_diabetes BOOLEAN DEFAULT 0,
+                diabetes_type ENUM('type1', 'type2', 'gestational'),
+                has_pcos BOOLEAN DEFAULT 0,
+                pregnancy_mode BOOLEAN DEFAULT 0,
+                pregnancy_trimester INT,
+                thyroid BOOLEAN DEFAULT 0,
+                thyroid_type ENUM('hypo', 'hyper'),
+                weight_goal VARCHAR(50),
+                daily_sugar_limit_grams INT DEFAULT 25,
+                breastfeeding BOOLEAN DEFAULT 0,
+                child_age_range VARCHAR(50),
+                dietary_preference ENUM('vegetarian', 'non_vegetarian', 'vegan', 'jain') DEFAULT 'vegetarian',
+                allergies JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_user_health (user_id),
+                INDEX idx_diabetes (has_diabetes),
+                INDEX idx_pcos (has_pcos),
+                INDEX idx_pregnancy (pregnancy_mode)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
+        // Sugar Shield - Sugar Scan Logs table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS sugar_scan_logs (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                user_id VARCHAR(36) NOT NULL,
+                product_id BIGINT,
+                product_name VARCHAR(255),
+                barcode VARCHAR(100),
+                sugar_consumed DECIMAL(10,2),
+                teaspoons DECIMAL(10,2),
+                serving_size_consumed DECIMAL(10,2),
+                alert_type VARCHAR(100),
+                health_profile_alerts JSON,
+                notes TEXT,
+                location_latitude DECIMAL(10, 8),
+                location_longitude DECIMAL(11, 8),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (product_id) REFERENCES food_products(id) ON DELETE SET NULL,
+                INDEX idx_user_scan (user_id, created_at),
+                INDEX idx_product (product_id),
+                INDEX idx_barcode (barcode),
+                INDEX idx_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
+        // Sugar Shield - Daily Sugar Tracker table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS daily_sugar_tracker (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                user_id VARCHAR(36) NOT NULL,
+                date DATE NOT NULL,
+                total_sugar_grams DECIMAL(10,2) DEFAULT 0,
+                total_teaspoons DECIMAL(10,2) DEFAULT 0,
+                scan_count INT DEFAULT 0,
+                high_sugar_items INT DEFAULT 0,
+                hidden_sugar_items INT DEFAULT 0,
+                daily_limit_grams INT DEFAULT 25,
+                percentage_consumed DECIMAL(5,2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_user_date (user_id, date),
+                INDEX idx_user_date (user_id, date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
+        // Sugar Shield - Food Alternatives table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS food_alternatives (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                original_product_id BIGINT NOT NULL,
+                alternative_product_id BIGINT NOT NULL,
+                reason VARCHAR(255),
+                health_benefit_score INT,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (original_product_id) REFERENCES food_products(id) ON DELETE CASCADE,
+                FOREIGN KEY (alternative_product_id) REFERENCES food_products(id) ON DELETE CASCADE,
+                INDEX idx_original (original_product_id),
+                INDEX idx_alternative (alternative_product_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
         // Cylinder Verifications table - for saving cylinder verification history
         await pool.query(`
             CREATE TABLE IF NOT EXISTS cylinder_verifications (

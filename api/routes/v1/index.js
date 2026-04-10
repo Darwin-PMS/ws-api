@@ -25,6 +25,7 @@ const cylinderRoutes = require('./mobile/cylinder');
 const safeRouteRoutes = require('./mobile/safeRoute');
 const liveStreamRoutes = require('./mobile/liveStream');
 const bannersRoutes = require('./mobile/banners');
+const sugarShieldRoutes = require('./mobile/sugarShield');
 
 const adminAuthRoutes = require('./admin/auth');
 const adminQrRoutes = require('./admin/qr');
@@ -44,6 +45,7 @@ const adminThemeRoutes = require('./admin/theme');
 const adminChildcareRoutes = require('./admin/childcare');
 const adminZonesRoutes = require('./admin/zones');
 const mobileZonesRoutes = require('./mobile/zones');
+const adminSugarShieldRoutes = require('./admin/sugarShield');
 
 router.use('/mobile/auth', authRoutes);
 router.use('/mobile/users', usersRoutes);
@@ -69,6 +71,7 @@ router.use('/mobile/cylinder', cylinderRoutes);
 router.use('/mobile/safe-route', safeRouteRoutes);
 router.use('/mobile/live-stream', liveStreamRoutes);
 router.use('/mobile/banners', bannersRoutes);
+router.use('/mobile/sugar-shield', sugarShieldRoutes);
 
 router.use('/admin/auth', adminAuthRoutes);
 router.use('/admin/qr', adminQrRoutes);
@@ -88,13 +91,14 @@ router.use('/admin/themes', adminThemeRoutes);
 router.use('/admin/childcare', adminChildcareRoutes);
 router.use('/admin/zones', adminZonesRoutes);
 router.use('/mobile/zones', mobileZonesRoutes);
+router.use('/admin/sugar-shield', adminSugarShieldRoutes);
 
 // Mobile admin routes (for mobile app admin features)
 router.use('/mobile/admin/zones', adminZonesRoutes);
 
 // Debug route to test zone endpoints
 router.get('/debug/zones-test', (req, res) => {
-    res.json({ success: true, message: 'Zone routes working!' });
+  res.json({ success: true, message: 'Zone routes working!' });
 });
 
 router.get('/mobile/health', (req, res) => {
